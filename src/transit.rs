@@ -29,8 +29,10 @@ use std::{
     collections::HashSet,
     net::{IpAddr, SocketAddr},
     sync::Arc,
-    time::Instant,
 };
+
+#[cfg(not(target_family = "wasm"))]
+use std::time::Instant;
 
 mod crypto;
 mod transport;
@@ -942,6 +944,7 @@ impl TransitConnector {
         } = self;
         let transit_key = Arc::new(transit_key);
 
+        #[cfg(not(target_family = "wasm"))]
         let start = Instant::now();
         let mut connection_stream = Box::pin(
             Self::connect_inner(
@@ -974,6 +977,9 @@ impl TransitConnector {
                 })?
                 .ok_or(TransitConnectError::Handshake)?;
 
+        // On WASM, browsers can't do direct TCP connections, so skip the
+        // "wait for a better direct connection" optimization.
+        #[cfg(not(target_family = "wasm"))]
         if conn_info.conn_type != ConnectionType::Direct && our_abilities.can_direct() {
             tracing::debug!(
                 "Established transit connection over relay. Trying to find a direct connection …"
